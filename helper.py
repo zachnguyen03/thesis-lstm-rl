@@ -10,14 +10,12 @@ def text_generation(length, diversity):
     
     # Loop through each pattern and predict using LSTM Model and print out the results
     for i in range(length):
-        x = tf.keras.utils.to_categorical(pattern, num_classes=43)
-        x = np.reshape(x, (1, x.shape[0], x.shape[1]))
-        x = x / float(n_vocab)
-        
-        prediction = model.predict(x, verbose=0)
+        patternX = tf.keras.utils.to_categorical(pattern, num_classes=32)
+        patternX = np.reshape(patternX, (1, patternX.shape[0], patternX.shape[1]))
+        prediction = model.predict(patternX, verbose=0)
 #        index = np.argmax(prediction)
         index = sample(prediction, diversity)
-        result = int_to_char[index]
+        result = int_to_char[index] 
         seq_in = [int_to_char[value] for value in pattern]
         sys.stdout.write(result)
         pattern.append(index)
@@ -32,7 +30,6 @@ def sample(preds, temperature=1.0):
     preds = exp_preds / np.sum(exp_preds)
     probas = np.random.multinomial(1, preds.T, 1)
     return np.argmax(probas)
-
 
 # Generate tokens (words) using spacy
 def get_tokens(doc_text):

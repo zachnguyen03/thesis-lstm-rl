@@ -5,11 +5,11 @@ import sys
 import re
 import matplotlib.pyplot as plt
 # Read file
-filename = 'wonderland.txt'
+filename = './Dataset/wonderland.txt'
 raw_text = open(filename, 'r', encoding='utf-8').read()
 raw_text = raw_text.lower()
 
-raw_text = re.sub(r'[^a-zA-z0-9.,]', ' ', raw_text)
+raw_text = re.sub(r'^a-zA-z0-9.,', ' ', raw_text)
 
 
 # List appeared characters in the text
@@ -65,14 +65,14 @@ model = Model()
 
 
 # Define hyperparameters and callbacks
-filepath = "lstm2-17thmarch.hdf5"
+filepath = "./Weights/lstm2-17thmarch.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
 # Train model and save loss to history
 history2 = model.fit(X, y, epochs=100, batch_size=64, callbacks=callbacks_list)
 
 # Load weight file and recompile model
-weights_file = 'lstm2-17thmarch.hdf5'
+weights_file = './Weights/lstm2-17thmarch.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
