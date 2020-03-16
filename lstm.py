@@ -2,10 +2,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import sys
-import spacy
+#import spacy
+import re
 
+# line = re.sub('[!@#$]', '', line)
 
-nlp = spacy.load('en_core_web_md', disable=['parser', 'tagger', 'ner'])
+#nlp = spacy.load('en_core_web_md', disable=['parser', 'tagger', 'ner'])
 # Read file
 filename = 'wonderland.txt'
 raw_text = open(filename, 'r', encoding='utf-8').read()
@@ -39,6 +41,7 @@ print("Total patterns: ", n_patterns)
 X = np.reshape(dataX, [n_patterns, seq_length, 1])
 X = X / float(n_vocab)
 
+X = tf.keras.utils.to_categorical(dataX)
 y = tf.keras.utils.to_categorical(dataY)
 
 
@@ -46,9 +49,9 @@ y = tf.keras.utils.to_categorical(dataY)
 def Model():
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.LSTM(256, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-    model.add(tf.keras.layers.Dropout(0.25))
+#    model.add(tf.keras.layers.Dropout(0.25))
     model.add(tf.keras.layers.LSTM(256, return_sequences = False))
-    model.add(tf.keras.layers.Dropout(0.25))
+#    model.add(tf.keras.layers.Dropout(0.25))
 #    model.add(tf.keras.layers.LSTM(256, return_sequences = False))
 #    model.add(tf.keras.layers.Dropout(0.25))
     model.add(tf.keras.layers.Dense(50, activation='relu'))
@@ -64,17 +67,18 @@ model = Model()
 
 
 # Define hyperparameters and callbacks
-filepath = "lstm2.hdf5"
+filepath = "lstm2-15thmarch.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
 
+
 	
-history = model.fit(X, y, epochs=100, batch_size=64, callbacks=callbacks_list)
+history = model.fit(X, y, epochs=200, batch_size=64, callbacks=callbacks_list)
 
 
-weights_file = 'lstm2.hdf5'
+weights_file = 'lstm2-15thmarch.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
 # Generate Text using custom Text Generation function in helper.py
-text_generation(1000, 0.18)
+text_generation(1000, 0.02)

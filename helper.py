@@ -10,15 +10,16 @@ def text_generation(length, diversity):
     
     # Loop through each pattern and predict using LSTM Model and print out the results
     for i in range(length):
-        x = np.reshape(pattern, (1, len(pattern), 1))
+        x = tf.keras.utils.to_categorical(pattern, num_classes=43)
+        x = np.reshape(x, (1, x.shape[0], x.shape[1]))
         x = x / float(n_vocab)
+        
         prediction = model.predict(x, verbose=0)
 #        index = np.argmax(prediction)
         index = sample(prediction, diversity)
         result = int_to_char[index]
         seq_in = [int_to_char[value] for value in pattern]
         sys.stdout.write(result)
-#        print(result)
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
         
@@ -35,7 +36,7 @@ def sample(preds, temperature=1.0):
 
 # Generate tokens (words) using spacy
 def get_tokens(doc_text):
-    # This pattern is a modification of the defaul filter from the
+    # This pattern is a modification of the default filter from the
     # Tokenizer() object in keras.preprocessing.text. 
     # It just indicates which patters no skip.
     skip_pattern = '\r\n \n\n \n\n\n!"-#$%&()--.*+,-./:;<=>?@[\\]^_`{|}~\t\n\r '
