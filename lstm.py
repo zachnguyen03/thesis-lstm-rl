@@ -2,16 +2,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import sys
-#import spacy
 import re
-
-# line = re.sub('[!@#$]', '', line)
-
-#nlp = spacy.load('en_core_web_md', disable=['parser', 'tagger', 'ner'])
+import matplotlib.pyplot as plt
 # Read file
 filename = 'wonderland.txt'
 raw_text = open(filename, 'r', encoding='utf-8').read()
 raw_text = raw_text.lower()
+
+raw_text = re.sub(r'[^a-zA-z0-9.,]', ' ', raw_text)
 
 
 # List appeared characters in the text
@@ -67,18 +65,44 @@ model = Model()
 
 
 # Define hyperparameters and callbacks
-filepath = "lstm2-15thmarch.hdf5"
+filepath = "lstm2-17thmarch.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
+# Train model and save loss to history
+history2 = model.fit(X, y, epochs=100, batch_size=64, callbacks=callbacks_list)
 
-
-	
-history = model.fit(X, y, epochs=200, batch_size=64, callbacks=callbacks_list)
-
-
-weights_file = 'lstm2-15thmarch.hdf5'
+# Load weight file and recompile model
+weights_file = 'lstm2-17thmarch.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
-# Generate Text using custom Text Generation function in helper.py
-text_generation(1000, 0.02)
+# Generate Text using custom Text Generation function
+def text_generation(length, diversity):
+    # Pick random seed from input text
+    start = np.random.randint(0, len(dataX)-1)
+    pattern = dataX[start]
+    
+    # Loop through each pattern and predict using LSTM Model and print out the results
+    for i in range(length):
+        patternX = tf.keras.utils.to_categorical(pattern, num_classes=32)
+        patternX = np.reshape(patternX, (1, patternX.shape[0], patternX.shape[1]))
+        prediction = model.predict(patternX, verbose=0)
+#        index = np.argmax(prediction)
+        index = sample(prediction, diversity)
+        result = int_to_char[index] 
+        seq_in = [int_to_char[value] for value in pattern]
+        sys.stdout.write(result)
+        pattern.append(index)
+        pattern = pattern[1:len(pattern)]
+        
+        
+def sample(preds, temperature=1.0):
+    # helper function to sample an index from a probability array
+    preds = np.asarray(preds).astype('float64')
+    preds = np.log(preds) / temperature
+    exp_preds = np.exp(preds)
+    preds = exp_preds / np.sum(exp_preds)
+    probas = np.random.multinomial(1, preds.T, 1)
+    return np.argmax(probas)
+
+text_generation(1000, 0.1)
