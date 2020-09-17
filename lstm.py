@@ -9,6 +9,7 @@ filename = './Dataset/wonderland.txt'
 raw_text = open(filename, 'r', encoding='utf-8').read()
 raw_text = raw_text.lower()
 
+# Extract symbols from text
 raw_text = re.sub(r'^a-zA-z0-9.,', ' ', raw_text)
 
 
@@ -47,11 +48,7 @@ y = tf.keras.utils.to_categorical(dataY)
 def Model():
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.LSTM(256, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-#    model.add(tf.keras.layers.Dropout(0.25))
     model.add(tf.keras.layers.LSTM(256, return_sequences = False))
-#    model.add(tf.keras.layers.Dropout(0.25))
-#    model.add(tf.keras.layers.LSTM(256, return_sequences = False))
-#    model.add(tf.keras.layers.Dropout(0.25))
     model.add(tf.keras.layers.Dense(50, activation='relu'))
     model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
     
@@ -68,8 +65,10 @@ model = Model()
 filepath = "./Weights/lstm2-17thmarch.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
+
+
 # Train model and save loss to history
-history2 = model.fit(X, y, epochs=100, batch_size=64, callbacks=callbacks_list)
+history2 = model.fit(X, y, epochs=200, batch_size=64, callbacks=callbacks_list)
 
 # Load weight file and recompile model
 weights_file = './Weights/lstm2-17thmarch.hdf5'
@@ -96,6 +95,7 @@ def text_generation(length, diversity):
         pattern = pattern[1:len(pattern)]
         
         
+
 def sample(preds, temperature=1.0):
     # helper function to sample an index from a probability array
     preds = np.asarray(preds).astype('float64')

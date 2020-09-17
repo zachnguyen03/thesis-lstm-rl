@@ -48,8 +48,8 @@ class Environment(gym.Env):
     Description: Environment for text generation
 
     Observation:
-        Type: Discrete(40)
-        Numpy array of sequence of 40 characters
+        Type: Box(40)
+        1-D Numpy array of sequence of 40 characters
 
     Action: 
         Type: Discrete(39)
@@ -65,6 +65,10 @@ class Environment(gym.Env):
         self.action_space = gym.spaces.Discrete(39)
 
         self.seed()
+        self.state = None
+
+        self.buffer = [] #Keep track of the 40 sequence
+        self.lstm_output = None
 
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
@@ -74,24 +78,42 @@ class Environment(gym.Env):
     def step(self, action):
         reward, done = 0,0
 
-        seq = ''.join(self.observation_space)
+        np.append(self.buffer, action)
+        self.buffer = self.buffer[1:]
+
+        seq = ''.join(self.buffer)
         words = [word for word in seq.split() if word != '']
         # if words[len(words)-1] is English reward += .1
         d = enchant.Dict('en_US')
-        if d.check(words[len(words)-1]) == 'True':
+        if d.check(words[len(words)-1]) == True:
             reward += 1
         else:
             reward -= 1
         
-        np.append(self.observation_space, action)
-        state = self.observation_space[1:]
 
         return reward, state, done
 
 
+    def sample_action(self):
+
+
     def reset(self):
-        pass
+        # Reset buffer to 40 first sequence and put them in LSTM
+        self.buffer = []
+        self.lstm_output = lstm.predict(self.buffer)
 
     # Render: return the sequences of text being processed
     def render(self):
-        return ''.join(self.observation_space)
+        return ''.join(self.buffer)
+
+    
+
+
+env = gym.make(Environment)
+env.reset()
+
+for i in range(1000): #trials
+    # env.reset() # LSTM
+    for j in range(50): #iterations
+        env.render() #FF
+        env.step(env.action_space.sample()) # step
