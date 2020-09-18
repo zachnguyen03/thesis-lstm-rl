@@ -40,4 +40,16 @@ def get_tokens(doc_text):
     
     tokens = [token.text.lower() for token in nlp(doc_text) if token.text not in skip_pattern]
     
-    return tokens
+   return tokens
+
+
+def plot():
+    hist_df = pd.read_csv('history.csv')
+    hist2_df = pd.read_csv('history2.csv')
+    plt.plot(np.arange(200), hist_df['loss'][:200], label="128 LSTM")
+    plt.plot(np.arange(200), hist2_df, label="256 LSTM")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    hist_csv_file = 'history2.csv' 
+    with open(hist_csv_file, mode='w') as f:
+        hist2_df.to_csv(f)

@@ -18,12 +18,12 @@ max_steps_per_episode = 10000
 
 
 def network():
-    input = tf.keras.layers.input(shape=(40,1,))
+    input = tf.keras.Input(shape=(40,1,))
     # Define LSTM layers
     layer1 = tf.keras.layers.LSTM(256, return_sequences=False)(input)
     layer2 = tf.keras.layers.LSTM(256, return_sequences=False)(layer1)
     fclayer1 = tf.keras.layers.Dense(50, activation='relu')(layer2)
-    fclayer2 = tf.keras.layers.Dense(39, activation='softmax')(fclayer1)
+    fclayer2 = tf.keras.layers.Dense(y.shape[1], activation='softmax')(fclayer1)
 
     return tf.keras.models.Sequential(input=input, output=layer2), tf.keras.models.Sequential(input=fclayer1, output=fclayer2)
 
@@ -67,7 +67,8 @@ class Environment(gym.Env):
         self.seed()
         self.state = None
 
-        self.buffer = [] #Keep track of the 40 sequence
+        start = np.random.randint(0, len(dataX)-1)
+        self.buffer = dataX[start] #Keep track of the 40 sequence
         self.lstm_output = None
 
     def seed(self, seed=None):

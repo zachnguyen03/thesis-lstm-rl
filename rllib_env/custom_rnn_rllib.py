@@ -19,7 +19,7 @@ tf = try_import_tf()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--run", type=str, default="PPO")
-parser.add_argument("--env", type=str, default="RepeatAfterMeEnv")
+parser.add_argument("--env", type=str, default="SimpleCorridor")
 parser.add_argument("--stop", type=int, default=90)
 parser.add_argument("--num-cpus", type=int, default=0)
 
@@ -46,6 +46,8 @@ class MyKerasRNN(RecurrentTFModelV2):
             shape=(None, obs_space.shape[0]), name="inputs")
         state_in_h = tf.keras.layers.Input(shape=(cell_size, ), name="h")
         state_in_c = tf.keras.layers.Input(shape=(cell_size, ), name="c")
+        state_in_h2 = tf.keras.layers.Input(shape=(cell_size, ), name="h2")
+        state_in_c2 = tf.keras.layers.Input(shape=(cell_size, ), name="c2")
         seq_in = tf.keras.layers.Input(shape=(), name="seq_in", dtype=tf.int32)
 
         # Preprocess observation with a hidden layer and send to LSTM cell
@@ -55,12 +57,12 @@ class MyKerasRNN(RecurrentTFModelV2):
                 mask=tf.sequence_mask(seq_in),
                 initial_state=[state_in_h, state_in_c])
         lstm_out2, state_h2, state_c2 = tf.keras.layers.LSTM(
-            cell_size, return_sequences=False, name="lstm2")(
-                inputs=input_layer,
+            cell_size, return_sequences=False, return_state=True, name="lstm2")(
+                inputs=lstm_out,
                 mask=tf.sequence_mask(seq_in),
-                initial_state=[state_in_h, state_in_c])
+                initial_state=[state_in_h2, state_in_c2])
         dense1 = tf.keras.layers.Dense(
-            hiddens_size, activation=tf.nn.relu, name="dense1")(lstm_out)
+            hiddens_size, activation=tf.nn.relu, name="dense1")(lstm_out2)
 
         # Postprocess LSTM output with another hidden layer and compute values
         logits = tf.keras.layers.Dense(
@@ -72,8 +74,8 @@ class MyKerasRNN(RecurrentTFModelV2):
 
         # Create the RNN model
         self.rnn_model = tf.keras.Model(
-            inputs=[input_layer, seq_in, state_in_h, state_in_c],
-            outputs=[logits, values, state_h, state_c])
+            inputs=[input_layer, seq_in, state_in_h, state_in_c, state_in_h2, state_in_c2],
+            outputs=[logits, values, state_h, state_c, state_h2, state_c2])
         self.register_variables(self.rnn_model.variables)
         self.rnn_model.summary()
 
@@ -155,10 +157,12 @@ if __name__ == "__main__":
     ray.shutdown()
     ray.init(None)
     ModelCatalog.register_custom_model("rnn", MyKerasRNN)
-    register_env("RepeatAfterMeEnv", lambda c: RepeatAfterMeEnv(c))
-    register_env("RepeatInitialEnv", lambda _: RepeatInitialEnv())
+#    register_env("RepeatAfterMeEnv", lambda c: RepeatAfterMeEnv(c))
+#    register_env("RepeatInitialEnv", lambda _: RepeatInitialEnv())
+    register_env("SimpleCorridor", lambda _: SimpleCorridor())
     tune.run(
         args.run,
+        verbose=1,
         stop={"episode_reward_mean": args.stop},
         config={
             "env": args.env,
