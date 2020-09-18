@@ -50,8 +50,8 @@ print("Total patterns: ", n_patterns)
 #X = np.reshape(dataX, [n_patterns, seq_length, 1])
 #X = X / float(n_vocab)
 
-X = tf.keras.utils.to_categorical(dataX)
-y = tf.keras.utils.to_categorical(dataY)
+X = tf.keras.utils.to_categorical(dataX, num_classes=num_classes)
+y = tf.keras.utils.to_categorical(dataY, num_classes=num_classes)
 
 
 # Define the model function
@@ -70,11 +70,11 @@ model = Model()
 model.summary()
 
 # Define hyperparameters and callbacks
-filepath = "./Weights/lstm2-17thmarch.hdf5"
+filepath = "./Weights/weight_lstm.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
 
-# Train model and save loss to history
+# Train model and save loss to history and save weights to file
 history2 = model.fit(X, y, epochs=200, batch_size=128, callbacks=callbacks_list)
 
 
