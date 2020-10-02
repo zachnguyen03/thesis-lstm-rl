@@ -57,8 +57,12 @@ y = tf.keras.utils.to_categorical(dataY, num_classes=num_classes)
 # Define the model function
 def Model():
     model = tf.keras.models.Sequential()
+    #model.add(tf.keras.layers.GRU(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
     model.add(tf.keras.layers.LSTM(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
+    model.add(tf.keras.layers.BatchNormalization())
+    #model.add(tf.keras.layers.GRU(128, return_sequences = False))
     model.add(tf.keras.layers.LSTM(128, return_sequences = False))
+    model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.Dense(50, activation='relu'))
     model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
     model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
@@ -70,16 +74,16 @@ model = Model()
 model.summary()
 
 # Define hyperparameters and callbacks
-filepath = "./Weights/weight_lstm.hdf5"
+filepath = "./Weights/weight_lstm_batch_norm.hdf5"
 checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list = [checkpoint]
 
 # Train model and save loss to history and save weights to file
-history2 = model.fit(X, y, epochs=200, batch_size=128, callbacks=callbacks_list)
+history6 = model.fit(X, y, epochs=400, batch_size=256, callbacks=callbacks_list)
 
 
 # Load weight file and recompile model
-weights_file = './Weights/lstm2-17thmarch-2.hdf5'
+weights_file = './Weights/weight_lstm_batch_norm.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
@@ -112,7 +116,7 @@ def sample(preds, temperature=1.0):
     probas = np.random.multinomial(1, preds.T, 1)
     return np.argmax(probas)
 
-text_generation(1000, 0.02)
+text_generation(1000, 0.1)
 
 
 # Save model

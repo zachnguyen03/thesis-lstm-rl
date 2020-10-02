@@ -3,7 +3,7 @@ import numpy as np
 import enchant
 import gym
 
-model_target = model
+
 class Environment(gym.Env):
     '''
     Description: Environment for text generation
@@ -31,7 +31,7 @@ class Environment(gym.Env):
         self.state = None
 
         self.buffer = None #Keep track of the 40 sequence
-        #self.lstm_output = lstm.predict(np.reshape(self.buffer, (1, self.buffer.shape[0], self.buffer.shape[1])))
+        self.lstm_output = None
 
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
@@ -42,17 +42,18 @@ class Environment(gym.Env):
         reward, done = 0,0
         self.buffer = np.append(self.buffer, [tf.keras.utils.to_categorical(action, num_classes=num_classes)], axis=0)
         self.buffer = self.buffer[1:]
-#        self.lstm_output = lstm.predict(np.reshape(self.buffer, (1, self.buffer.shape[0], self.buffer.shape[1])))
+        self.lstm_output = lstm.predict(np.reshape(self.buffer, (1, self.buffer.shape[0], self.buffer.shape[1])))
         
         seq = ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
         words = [word for word in seq.split() if word != '']
         d = enchant.Dict('en_US')
-        if d.check(words[len(words)-1]) == True and len(words[len(words)-1]) > 2:
-            reward = 5
+        if words[len(words)-1] in word_tokens:
+            reward = 10
         else:
             reward = -1
         
 #        print('Last word: ', words[len(words) - 1])
+            #d.check(words[len(words)-1]) == True 
 
         return self.buffer, reward, done, {}
 
@@ -60,6 +61,7 @@ class Environment(gym.Env):
         # Reset buffer to 40 first sequence and put them in LSTM
         start = np.random.randint(0, len(dataX) - 1)
         self.buffer = tf.keras.utils.to_categorical(dataX[start], num_classes=num_classes)
+        self.lstm_output = lstm.predict(np.reshape(self.buffer, (1, self.buffer.shape[0], self.buffer.shape[1])))
         return self.buffer
 
     # Render: return the sequences of text being processed
@@ -82,12 +84,12 @@ class Environment(gym.Env):
 
 
 
-lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[1].output)
+lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[3].output)
 #ff = model(inputs=model.layers[2].input, outputs = model.layers[3].output)
 
-ff_input = tf.keras.layers.Input(model.layers[2].input_shape[1:])
+ff_input = tf.keras.layers.Input(model.layers[4].input_shape[1:])
 ff_model = ff_input
-for layer in model.layers[2:]:
+for layer in model.layers[4:]:
     ff_model = layer(ff_model)
 ff_model = tf.keras.models.Model(inputs=ff_input, outputs=ff_model)
 ff_model_target = ff_model
@@ -102,14 +104,14 @@ ff_model_target = ff_model
 #model_test.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
 
 #Training
-
+model_target = model
 #Hyperparameters
-gamma = 0.99
-loss_function = tf.keras.losses.CategoricalCrossentropy() 
+gamma = 0.995
+loss_function = tf.keras.losses.Huber() 
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
 
 epsilon_greedy_frames = 1000000
-epsilon_random_iters = 20000
+epsilon_random_iters = 100000
 epsilon = 1.0
 epsilon_min = 0.1
 epsilon_max = 1.0
@@ -126,7 +128,7 @@ episode_count = 0
 iters = 0
 batch_size = 128
 
-update_after_actions = 39
+update_after_actions = 4
 update_target_net = 1000
 
 env = Environment()
@@ -139,7 +141,7 @@ while True:
         if iters < epsilon_random_iters or epsilon > np.random.rand(1)[0]:
             action = np.random.choice(39)
         else:
-            prediction = model.predict(np.reshape(state, (1,40,39)))
+            prediction = ff_model(tf.convert_to_tensor(env.lstm_output), training=False)
             action = np.argmax(prediction)
         
         epsilon -= epsilon_interval / epsilon_greedy_frames
@@ -154,7 +156,7 @@ while True:
         state_next_history.append(state_next)
         rewards_history.append(reward)
         done_history.append(done)
-#        lstm_output_history.append(env.lstm_output)
+        lstm_output_history.append(env.lstm_output)
         state = state_next
         
         #Update weights after 10th character outputted
@@ -162,7 +164,7 @@ while True:
             indices = np.random.choice(range(len(done_history)), size=batch_size)
             state_sample = np.array([state_history[i] for i in indices])
             state_next_sample = np.array([state_next_history[i] for i in indices])
-#            lstm_output_sample = np.array([lstm_output_history[i] for i in indices])
+            lstm_output_sample = np.array([lstm_output_history[i] for i in indices])
             rewards_sample = [rewards_history[i] for i in indices]
             action_sample = [action_history[i] for i in indices]
             done_sample = tf.convert_to_tensor(
@@ -170,23 +172,24 @@ while True:
             )
             
             #Build q-table and q-values
-            future_rewards = model_target(state_next_sample)
+            future_rewards = ff_model_target.predict(np.reshape(lstm_output_sample,(batch_size, 128)))
             
-            updated_q_values = rewards_sample + gamma * tf.math.reduce_max(future_rewards, axis=1) 
+            updated_q_values = rewards_sample + gamma * tf.math.reduce_max(future_rewards, axis=1)
             updated_q_values = updated_q_values* (1-done_sample) - done_sample
             
             masks = tf.one_hot(action_sample, 39)
             
             with tf.GradientTape() as tape:
-                q_values = model(state_next_sample)
-                q_action = tf.math.reduce_sum(tf.math.multiply(q_values, masks), axis=1)
+                tape.watch(ff_model.trainable_variables)
+                q_values = ff_model(lstm_output_sample)
+                q_action = tf.math.reduce_sum(tf.math.multiply(tf.math.reduce_max(q_values, axis=1), masks), axis=1)
                 loss = loss_function(updated_q_values, q_action)
             
-            grads = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(grads, model.trainable_variables))
+            grads = tape.gradient(loss, ff_model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, ff_model.trainable_variables))
         
         if iters % update_target_net == 0:
-            model_target.set_weights(model.get_weights())
+            ff_model_target.set_weights(ff_model.get_weights())
             
             print('running reward: {:.2f} at episode {}, iter {}'.format(running_reward, episode_count, iters))
             
@@ -201,11 +204,13 @@ while True:
         if done == 1:
             break
     episode_reward_history.append(episode_reward)
+    if len(episode_reward_history) > 100:
+        del episode_reward_history[:1]
     episode_count += 1
     running_reward = np.mean(episode_reward_history)
     print('Episode Reward: ', episode_reward)
     print('Running reward: ', running_reward)
     print('Loss: ', loss)
-    if running_reward > 0:
+    if running_reward > 1000:
         print('Updated at episode {}'.format(episode_count))
         break
