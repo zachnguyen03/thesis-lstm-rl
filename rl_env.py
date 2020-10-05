@@ -47,7 +47,7 @@ class Environment(gym.Env):
         seq = ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
         words = [word for word in seq.split() if word != '']
         d = enchant.Dict('en_US')
-        if words[len(words)-1] in word_tokens:
+        if d.check(words[len(words)-1]) == True:
             reward = 10
         else:
             reward = -1
@@ -84,12 +84,12 @@ class Environment(gym.Env):
 
 
 
-lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[3].output)
+lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[1].output)
 #ff = model(inputs=model.layers[2].input, outputs = model.layers[3].output)
 
-ff_input = tf.keras.layers.Input(model.layers[4].input_shape[1:])
+ff_input = tf.keras.layers.Input(model.layers[2].input_shape[1:])
 ff_model = ff_input
-for layer in model.layers[4:]:
+for layer in model.layers[2:]:
     ff_model = layer(ff_model)
 ff_model = tf.keras.models.Model(inputs=ff_input, outputs=ff_model)
 ff_model_target = ff_model
@@ -108,10 +108,10 @@ model_target = model
 #Hyperparameters
 gamma = 0.995
 loss_function = tf.keras.losses.Huber() 
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0)
 
 epsilon_greedy_frames = 1000000
-epsilon_random_iters = 100000
+epsilon_random_iters = 5000
 epsilon = 1.0
 epsilon_min = 0.1
 epsilon_max = 1.0
@@ -211,6 +211,10 @@ while True:
     print('Episode Reward: ', episode_reward)
     print('Running reward: ', running_reward)
     print('Loss: ', loss)
-    if running_reward > 1000:
+    if running_reward > 0:
         print('Updated at episode {}'.format(episode_count))
         break
+    
+    
+# 0 -769 100 199 102 342 
+# 0 -769 100 -713 158 7.16 227 1000

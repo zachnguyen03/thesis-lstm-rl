@@ -59,10 +59,10 @@ def Model():
     model = tf.keras.models.Sequential()
     #model.add(tf.keras.layers.GRU(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
     model.add(tf.keras.layers.LSTM(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-    model.add(tf.keras.layers.BatchNormalization())
+    #model.add(tf.keras.layers.BatchNormalization())
     #model.add(tf.keras.layers.GRU(128, return_sequences = False))
     model.add(tf.keras.layers.LSTM(128, return_sequences = False))
-    model.add(tf.keras.layers.BatchNormalization())
+   # model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.Dense(50, activation='relu'))
     model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
     model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
@@ -83,7 +83,7 @@ history6 = model.fit(X, y, epochs=400, batch_size=256, callbacks=callbacks_list)
 
 
 # Load weight file and recompile model
-weights_file = './Weights/weight_lstm_batch_norm.hdf5'
+weights_file = './Weights/lstm-17thmarch-2.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
