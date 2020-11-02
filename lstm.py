@@ -59,10 +59,10 @@ def Model():
     model = tf.keras.models.Sequential()
     #model.add(tf.keras.layers.GRU(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
     model.add(tf.keras.layers.LSTM(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-    #model.add(tf.keras.layers.BatchNormalization())
+#    model.add(tf.keras.layers.BatchNormalization())
     #model.add(tf.keras.layers.GRU(128, return_sequences = False))
     model.add(tf.keras.layers.LSTM(128, return_sequences = False))
-   # model.add(tf.keras.layers.BatchNormalization())
+#    model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.Dense(50, activation='relu'))
     model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
     model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
@@ -74,16 +74,16 @@ model = Model()
 model.summary()
 
 # Define hyperparameters and callbacks
-filepath = "./Weights/weight_lstm_batch_norm.hdf5"
-checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-callbacks_list = [checkpoint]
-
-# Train model and save loss to history and save weights to file
-history6 = model.fit(X, y, epochs=400, batch_size=256, callbacks=callbacks_list)
+#filepath = "./Weights/weight_lstm_batch_norm.hdf5"
+#checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+#callbacks_list = [checkpoint]
+#
+## Train model and save loss to history and save weights to file
+#history6 = model.fit(X, y, epochs=400, batch_size=256, callbacks=callbacks_list)
 
 
 # Load weight file and recompile model
-weights_file = './Weights/lstm-17thmarch-2.hdf5'
+weights_file = './Weights/lstm2-17thmarch-2.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
@@ -116,14 +116,14 @@ def sample(preds, temperature=1.0):
     probas = np.random.multinomial(1, preds.T, 1)
     return np.argmax(probas)
 
-text_generation(1000, 0.1)
+text_generation(1000, 0.15)
 
 
 # Save model
-model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
-del model  # deletes the existing model
-
-
-# returns a compiled model
-# identical to the previous one
-model = tf.keras.models.load_model('my_model.h5')
+#model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
+#del model  # deletes the existing model
+#
+#
+## returns a compiled model
+## identical to the previous one
+#model = tf.keras.models.load_model('my_model.h5')
