@@ -64,6 +64,7 @@ def Model():
     model.add(tf.keras.layers.LSTM(128, return_sequences = False))
 #    model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.Dense(50, activation='relu'))
+#    model.add(tf.keras.layers.Dense(200, activation='relu'))
     model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
     model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     return model
@@ -74,12 +75,12 @@ model = Model()
 model.summary()
 
 # Define hyperparameters and callbacks
-#filepath = "./Weights/weight_lstm_batch_norm.hdf5"
+#filepath = "./Weights/weight_lstm1-nov.hdf5"
 #checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 #callbacks_list = [checkpoint]
 #
 ## Train model and save loss to history and save weights to file
-#history6 = model.fit(X, y, epochs=400, batch_size=256, callbacks=callbacks_list)
+#history6 = model.fit(X, y, epochs=100, batch_size=256, callbacks=callbacks_list)
 
 
 # Load weight file and recompile model
@@ -87,9 +88,12 @@ weights_file = './Weights/lstm2-17thmarch-2.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     
+
+
 # Generate Text using custom Text Generation function
 def text_generation(length, diversity):
     # Pick random seed from input text
+    outputted_text = ''
     start = np.random.randint(0, len(dataX)-1)
     pattern = dataX[start]
     # Loop through each pattern and predict using LSTM Model and print out the results
@@ -102,9 +106,10 @@ def text_generation(length, diversity):
         result = int_to_char[index] 
         seq_in = [int_to_char[value] for value in pattern]
         sys.stdout.write(result)
+        outputted_text += result
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
-        
+    return outputted_text
         
 
 def sample(preds, temperature=1.0):
@@ -116,7 +121,7 @@ def sample(preds, temperature=1.0):
     probas = np.random.multinomial(1, preds.T, 1)
     return np.argmax(probas)
 
-text_generation(1000, 0.15)
+outputted_text = text_generation(1000, 0.15)
 
 
 # Save model

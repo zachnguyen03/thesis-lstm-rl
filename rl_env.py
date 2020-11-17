@@ -10,6 +10,9 @@ weights_file = './Weights/lstm2-17thmarch-2.hdf5'
 model.load_weights(weights_file)
 model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
 
+def softmax(x):
+    return np.exp(x) / np.sum(np.exp(x), axis=0)
+
 class Environment(gym.Env):
     '''
     Description: Environment for text generation
@@ -53,8 +56,8 @@ class Environment(gym.Env):
         seq = ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
         words = [word for word in seq.split() if word != '']
         last_wrd = words[len(words)-1]
-        if last_wrd in wrds.words():
-            reward = 10
+        if len(last_wrd) == 2:
+            reward = 30
         else:
             reward = -1
 #            try:
@@ -86,21 +89,30 @@ class Environment(gym.Env):
 
 lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[1].output)
 
-ff_input = tf.keras.layers.Input(model.layers[2].input_shape[1:])
-ff_model = ff_input
-for layer in model.layers[2:]:
-    ff_model = layer(ff_model)
-ff_model = tf.keras.models.Model(inputs=ff_input, outputs=ff_model)
-ff_model_target = ff_model
+def create_ff_model():
+    ff_input = tf.keras.layers.Input(model.layers[2].input_shape[1:])
+    ff_model = ff_input
+    for layer in model.layers[2:]:
+        ff_model = layer(ff_model)
+    return tf.keras.models.Model(inputs=ff_input, outputs=ff_model)
 
+ff_model = create_ff_model()
 
+def create_target_model():
+    inputs = tf.keras.layers.Input(model.layers[2].input_shape[1:])
+    layer1 = tf.keras.layers.Dense(50, activation='relu')(inputs)
+    layer2 = tf.keras.layers.Dense(39, activation='softmax')(layer1)
+    return tf.keras.models.Model(inputs=inputs, outputs=layer2)
+ff_model_target = create_target_model()
+ff_model_target.set_weights(ff_model.get_weights())
 
 
 #Training
 model_target = model
 #Hyperparameters
-gamma = 0.95
-loss_function = tf.keras.losses.Huber() 
+gamma = 0.99
+loss_function = tf.keras.losses.Huber()
+kl_function = tf.keras.losses.KLDivergence(reduction=tf.keras.losses.Reduction.NONE)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
 
 epsilon_greedy_frames = 1000000
@@ -121,7 +133,7 @@ episode_count = 0
 iters = 0
 batch_size = 64
 
-update_after_actions = 4
+update_after_actions = 40
 update_target_net = 1000
 
 env = Environment()
@@ -134,7 +146,7 @@ while True:
         if iters < epsilon_random_iters and epsilon > np.random.rand(1)[0]:
             action = np.random.choice(39)
         else:
-            prediction = ff_model(tf.convert_to_tensor(env.lstm_output))
+            prediction = ff_model(tf.convert_to_tensor(env.lstm_output), training=False)
 #            action = np.argmax(prediction)
             action = sample(prediction, 0.2)
         
@@ -155,40 +167,47 @@ while True:
         
         #Update weights after 10th character outputted
         if iters % update_after_actions == 0 and len(done_history) > batch_size:
-            indices = np.random.choice(range(len(done_history)- batch_size))
-            state_sample = np.array([state_history[indices:indices+batch_size]])
-            state_next_sample = np.array([state_next_history[indices:indices+batch_size]])
-            lstm_output_sample = np.array([lstm_output_history[indices:indices+batch_size]])
-            rewards_sample = np.array([rewards_history[indices:indices+batch_size]])
-            action_sample = np.array([action_history[indices:indices+batch_size]])
-            done_sample = tf.convert_to_tensor(
-                np.array(done_history[indices:indices+batch_size])
-            )
-#            indices = np.random.choice(range(len(done_history)), size=batch_size)
-#
-#            # Using list comprehension to sample from replay buffer
-#            state_sample = np.array([state_history[i] for i in indices])
-#            state_next_sample = np.array([state_next_history[i] for i in indices])
-#            lstm_output_sample = np.array([lstm_output_history[i] for i in indices])
-#            rewards_sample = [rewards_history[i] for i in indices]
-#            action_sample = [action_history[i] for i in indices]
+#            indices = np.random.choice(range(len(done_history)- batch_size))
+#            state_sample = np.array(state_history[indices:indices+batch_size])
+#            state_next_sample = np.array(state_next_history[indices:indices+batch_size])
+#            lstm_output_sample = np.array(lstm_output_history[indices:indices+batch_size])
+#            rewards_sample = rewards_history[indices:indices+batch_size]
+#            action_sample = action_history[indices:indices+batch_size]
 #            done_sample = tf.convert_to_tensor(
-#                [float(done_history[i]) for i in indices]
+#                np.array(done_history[indices:indices+batch_size])
 #            )
+            indices = np.random.choice(range(len(done_history)), size=batch_size)
+
+            # Using list comprehension to sample from replay buffer
+            state_sample = np.array([state_history[i] for i in indices])
+            state_next_sample = np.array([state_next_history[i] for i in indices])
+            lstm_output_sample = np.array([lstm_output_history[i] for i in indices])
+            rewards_sample = [rewards_history[i] for i in indices]
+            action_sample = [action_history[i] for i in indices]
+            done_sample = tf.convert_to_tensor(
+                [float(done_history[i]) for i in indices]
+            )
             #Build q-table and q-values
-            future_rewards = ff_model_target.predict(np.reshape(lstm_output_sample,(batch_size, 128)))
-            
+            future_rewards = ff_model_target.predict(tf.convert_to_tensor(np.reshape(lstm_output_sample,(batch_size, 128))))
+            P_super = np.max(future_rewards, axis=1)
             updated_q_values = rewards_sample + gamma * tf.math.reduce_max(future_rewards, axis=1)
 #            updated_q_values = updated_q_values* (1-done_sample) - done_sample
-            
+            P_new = softmax(updated_q_values)
             masks = tf.one_hot(action_sample, 39)
             
-            with tf.GradientTape() as tape:
+#            a = gamma * future_rewards
+#            for i in range(len(rewards_sample)):
+#                a[i] += rewards_sample[i]
+#            a_P = np.array([softmax(row) for row in a])
+#            a_P_max = np.max(a_P, axis=1)
+                
+            with tf.GradientTape(persistent=True) as tape:
                 tape.watch(ff_model.trainable_variables)
                 q_values = ff_model(lstm_output_sample)
-                q_action = tf.math.reduce_sum(tf.math.multiply(tf.math.reduce_max(np.reshape(q_values, (1, 64,39)), axis=1), masks), axis=2)
-#                q_action = tf.math.reduce_sum(tf.math.multiply(tf.math.reduce_max(q_values, axis=1), masks), axis=1)
-                loss = loss_function(updated_q_values, q_action)
+#                q_action = tf.math.reduce_sum(tf.math.multiply(np.reshape(q_values, (1, 64,39)), masks), axis=2)
+                q_action = tf.math.reduce_sum(tf.math.multiply(tf.math.reduce_max(q_values, axis=1), masks), axis=1)
+                alpha = 0.05
+                loss = loss_function(updated_q_values, q_action) + alpha*0.5*(kl_function(P_new, P_super) + kl_function(P_super, P_new))  
             
             grads = tape.gradient(loss, ff_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, ff_model.trainable_variables))
@@ -220,7 +239,7 @@ while True:
 #        print('Updated at episode {}'.format(episode_count))
 #        break
     # Stop if training episodes count 100 
-    if episode_count == 100:
+    if episode_count == 300:
         print('Trained for 100 episodes')
         break
     
@@ -230,3 +249,4 @@ plt.xlabel('Episode')
 plt.ylabel('Episode reward')
 plt.title('RL training')
 plt.show()
+
