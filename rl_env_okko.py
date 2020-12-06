@@ -59,23 +59,24 @@ class Environment(gym.Env):
         words = [word for word in seq.split() if word != '']
         last_wrd = words[len(words)-1]
 #        food_terms = ['food', 'cake', 'salt', 'sugar', 'said']
-#        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]])) #char_to_int is dict mapping character to action number (index)
-#        if last_wrd in food_terms:
-##            try:
-##                last_wrd_synset = wn.synset(last_wrd+'.n.01')
-##                if last_wrd_synset.wup_similarity(wn.synset('cake.n.01')) > 0.6:
-##                    reward = 10
-##            except:
-##                reward = 0
-##        else:
-##            reward = 0
-#            reward = 10
+#        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]]) #char_to_int is dict mapping character to action number (index)
+        if len(last_wrd) == 3:
+            reward = 4
+        else:
+            reward = -1
+#        if last_wrd in wrds.words():
+#            try:
+#                last_wrd_synset = wn.synset(last_wrd+'.n.01')
+#                if last_wrd_synset.wup_similarity(wn.synset('cake.n.01')) > 0.75:
+#                    reward = 1
+#            except:
+#                reward = -1
+#        else:
+#            reward = -1
+#        if last_wrd in wrds.words():
+#            reward = 7
 #        else:
 #            reward = 0
-        if last_wrd in wrds.words():
-            reward = 7
-        else:
-            reward = 0
             
         
         return self.buffer, reward, done, {}
@@ -116,8 +117,8 @@ class Environment(gym.Env):
 #Training
 model_target = Model()
 #Hyperparameters
-gamma = 0.96
-alpha = 0.000001 #alpha for Jensen-SHannon loss
+gamma = 0.99
+alpha = 1 #alpha for Jensen-SHannon loss
 loss_function = tf.keras.losses.Huber()
 kl_function = tf.keras.losses.KLDivergence(reduction=tf.keras.losses.Reduction.NONE)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
@@ -135,6 +136,9 @@ state_next_history = []
 rewards_history = []
 done_history = []
 episode_reward_history = []
+js_history = []
+aux_loss = []
+kl_loss = []
 running_reward = 0
 episode_count = 0
 iters = 0
@@ -173,25 +177,25 @@ while True:
         
         #Update weights after 10th character outputted
         if iters % update_after_actions == 0 and len(done_history) > batch_size:
-#            indices = np.random.choice(range(len(done_history)- batch_size))
-#            state_sample = np.array(state_history[indices:indices+batch_size])
-#            state_next_sample = np.array(state_next_history[indices:indices+batch_size])
+            indices = np.random.choice(range(len(done_history)- batch_size))
+            state_sample = np.array(state_history[indices:indices+batch_size])
+            state_next_sample = np.array(state_next_history[indices:indices+batch_size])
 #            lstm_output_sample = np.array(lstm_output_history[indices:indices+batch_size])
-#            rewards_sample = rewards_history[indices:indices+batch_size]
-#            action_sample = action_history[indices:indices+batch_size]
-#            done_sample = tf.convert_to_tensor(
-#                np.array(done_history[indices:indices+batch_size])
-#            )
-            indices = np.random.choice(range(len(done_history)), size=batch_size)
-
-            # Using list comprehension to sample from replay buffer
-            state_sample = np.array([state_history[i] for i in indices])
-            state_next_sample = np.array([state_next_history[i] for i in indices])
-            rewards_sample = [rewards_history[i] for i in indices]
-            action_sample = [action_history[i] for i in indices]
+            rewards_sample = rewards_history[indices:indices+batch_size]
+            action_sample = action_history[indices:indices+batch_size]
             done_sample = tf.convert_to_tensor(
-                [float(done_history[i]) for i in indices]
+                np.array(done_history[indices:indices+batch_size])
             )
+#            indices = np.random.choice(range(len(done_history)), size=batch_size)
+#
+#            # Using list comprehension to sample from replay buffer
+#            state_sample = np.array([state_history[i] for i in indices])
+#            state_next_sample = np.array([state_next_history[i] for i in indices])
+#            rewards_sample = [rewards_history[i] for i in indices]
+#            action_sample = [action_history[i] for i in indices]
+#            done_sample = tf.convert_to_tensor(
+#                [float(done_history[i]) for i in indices]
+#            )
             #Build q-table and q-values
             future_rewards = model_target.predict(tf.convert_to_tensor(state_sample))
             P_super = future_rewards
@@ -204,7 +208,8 @@ while True:
             for i in range(len(rewards_sample)):
                 a[i] += rewards_sample[i]
             P_new = np.array([softmax(row) for row in a])
-#            a_P_max = np.max(a_P, axis=1)
+            
+            # Calculating the KL Divergence of P_super and P_new 
             kl = np.mean([kl_function(P_new[i], P_super[i]) for i in range(64)])
             kl_rev = np.mean([kl_function(P_super[i], P_new[i]) for i in range(64)])
                 
@@ -213,7 +218,7 @@ while True:
                 q_values = model(state_sample)
 #                q_action = tf.math.reduce_sum(tf.math.multiply(np.reshape(q_values, (1, 64,39)), masks), axis=2)
                 q_action = tf.math.reduce_sum(tf.math.multiply(q_values, masks), axis=1)
-                loss = loss_function(updated_q_values, q_action) + alpha*0.5*(kl + kl_rev)  
+                loss = loss_function(updated_q_values, q_action) + alpha*0.5*(kl + kl_rev)
 #                loss = loss_function(updated_q_values, q_action)
             
             grads = tape.gradient(loss, model.trainable_variables)
@@ -234,13 +239,14 @@ while True:
         if done == 1:
             break
     episode_reward_history.append(episode_reward)
-    if len(episode_reward_history) > 100:
-        del episode_reward_history[:1]
     episode_count += 1
     running_reward = np.mean(episode_reward_history)
     print('Episode Reward: ', episode_reward)
     print('Running reward: ', running_reward)
-    print('Loss: ', loss)
+#    print('Loss: ', loss)
+#    print('Jensen-Shannon divergence: ', 0.5*(kl + kl_rev))
+    aux_loss.append(loss)
+    kl_loss.append(0.5*(kl + kl_rev))
 #    if running_reward > 0:
 #        print('Updated at episode {}'.format(episode_count))
 #        break
@@ -250,12 +256,12 @@ while True:
         break
     
 #plot
-#    plt.plot(episode_reward_history)
-#    plt.ylim(0,5000)
-#    plt.xlabel('Episode')
-#    plt.ylabel('Episode reward')
-#    plt.title('RL training')
-#    plt.show()
+plt.plot(episode_reward_history)
+plt.ylim(-15000, 0)
+plt.xlabel('Episode')
+plt.ylabel('Episode reward')
+plt.title('RL training')
+plt.show()
 
 #Code for checking 
 #''.join([int_to_char[a] for a in action_history])
