@@ -17,6 +17,8 @@ model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Ada
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
+nouns = {x.name().split('.', 1)[0] for x in wn.all_synsets('n')}
+
 class Environment(gym.Env):
     '''
     Description: Environment for text generation
@@ -58,17 +60,23 @@ class Environment(gym.Env):
         seq = ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
         words = [word for word in seq.split() if word != '']
         last_wrd = words[len(words)-1]
+        sec_last_wrd = words[len(words)-2]
 #        food_terms = ['food', 'cake', 'salt', 'sugar', 'said']
-#        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]]) #char_to_int is dict mapping character to action number (index)
-        if len(last_wrd) == 3:
-            reward = 4
+#        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]])) #char_to_int is dict mapping character to action number (index)
+#        if len(last_wrd) == 3:
+#            reward = 10
+#        else:
+#            reward = -1
+        if len(words) > 6 and last_wrd in wrds.words() and sec_last_wrd != last_wrd and last_wrd != 'the':
+#        if len(words) > 7 and len(last_wrd) == 3:
+            reward = 10
         else:
             reward = -1
-#        if last_wrd in wrds.words():
+#        if len(words) > 6 and last_wrd in wrds.words() and sec_last_wrd != last_wrd and last_wrd in nouns:
 #            try:
 #                last_wrd_synset = wn.synset(last_wrd+'.n.01')
-#                if last_wrd_synset.wup_similarity(wn.synset('cake.n.01')) > 0.75:
-#                    reward = 1
+#                if last_wrd_synset.wup_similarity(wn.synset('cake.n.01')) > 0.6:
+#                    reward = 10
 #            except:
 #                reward = -1
 #        else:
@@ -116,10 +124,11 @@ class Environment(gym.Env):
 
 #Training
 model_target = Model()
+model_ref = Model()
 #Hyperparameters
-gamma = 0.99
-alpha = 1 #alpha for Jensen-SHannon loss
-loss_function = tf.keras.losses.Huber()
+gamma = 0.99 
+alpha = 100000 #alpha for Jensen-SHannon loss
+loss_function = tf.keras.losses.CategoricalCrossentropy()
 kl_function = tf.keras.losses.KLDivergence(reduction=tf.keras.losses.Reduction.NONE)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
 
@@ -199,6 +208,7 @@ while True:
             #Build q-table and q-values
             future_rewards = model_target.predict(tf.convert_to_tensor(state_sample))
             P_super = future_rewards
+            P_ref = model_ref.predict(tf.convert_to_tensor(state_sample))
             updated_q_values = rewards_sample + gamma * tf.math.reduce_max(future_rewards, axis=1)
 #            P_new = softmax(updated_q_values)
             masks = tf.one_hot(action_sample, 39)
@@ -210,15 +220,17 @@ while True:
             P_new = np.array([softmax(row) for row in a])
             
             # Calculating the KL Divergence of P_super and P_new 
-            kl = np.mean([kl_function(P_new[i], P_super[i]) for i in range(64)])
-            kl_rev = np.mean([kl_function(P_super[i], P_new[i]) for i in range(64)])
+            M = 0.5*(P_ref+P_super)
+            
+            kl = np.mean([kl_function(P_ref[i], M[i]) for i in range(64)])
+            kl_rev = np.mean([kl_function(P_super[i], M[i]) for i in range(64)])
                 
             with tf.GradientTape(persistent=True) as tape:
                 tape.watch(model.trainable_variables)
                 q_values = model(state_sample)
 #                q_action = tf.math.reduce_sum(tf.math.multiply(np.reshape(q_values, (1, 64,39)), masks), axis=2)
                 q_action = tf.math.reduce_sum(tf.math.multiply(q_values, masks), axis=1)
-                loss = loss_function(updated_q_values, q_action) + alpha*0.5*(kl + kl_rev)
+                loss = loss_function(updated_q_values, q_action) + alpha*0.5*(kl+kl_rev)
 #                loss = loss_function(updated_q_values, q_action)
             
             grads = tape.gradient(loss, model.trainable_variables)
@@ -243,28 +255,36 @@ while True:
     running_reward = np.mean(episode_reward_history)
     print('Episode Reward: ', episode_reward)
     print('Running reward: ', running_reward)
-#    print('Loss: ', loss)
-#    print('Jensen-Shannon divergence: ', 0.5*(kl + kl_rev))
+    print('Loss: ', loss)
+    print('Jensen-Shannon divergence: ', 0.5*(kl + kl_rev))
     aux_loss.append(loss)
     kl_loss.append(0.5*(kl + kl_rev))
 #    if running_reward > 0:
 #        print('Updated at episode {}'.format(episode_count))
 #        break
     # Stop if training episodes count 100 
-    if episode_count == 300:
+    if episode_count == 100:
         print('Trained for 100 episodes')
         break
     
-#plot
+##plot
 plt.plot(episode_reward_history)
-plt.ylim(-15000, 0)
+plt.ylim(-20000, 0)
 plt.xlabel('Episode')
 plt.ylabel('Episode reward')
 plt.title('RL training')
 plt.show()
-
-#Code for checking 
-#''.join([int_to_char[a] for a in action_history])
+#
+aux, = plt.plot(aux_loss)
+kl, = plt.plot(kl_loss)
+plt.legend([aux, kl], ['Total loss', 'JS Loss'], loc='lower right')
+plt.xlabel('Episode')
+plt.ylabel('Episode loss')
+plt.title('RL training')
+plt.show()
+#
+##Code for checking 
+##''.join([int_to_char[a] for a in action_history])
 
 
 
