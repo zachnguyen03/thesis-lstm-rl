@@ -99,28 +99,6 @@ class Environment(gym.Env):
     def render(self):
         return ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
 
-    
-
-
-#lstm = tf.keras.Model(inputs = model.layers[0].input, outputs = model.layers[1].output)
-#
-#def create_ff_model():
-#    ff_input = tf.keras.layers.Input(model.layers[2].input_shape[1:])
-#    ff_model = ff_input
-#    for layer in model.layers[2:]:
-#        ff_model = layer(ff_model)
-#    return tf.keras.models.Model(inputs=ff_input, outputs=ff_model)
-#
-#ff_model = create_ff_model()
-#
-#def create_target_model():
-#    inputs = tf.keras.layers.Input(model.layers[2].input_shape[1:])
-#    layer1 = tf.keras.layers.Dense(num_ff_units, activation='relu')(inputs)
-#    layer2 = tf.keras.layers.Dense(y.shape[1], activation='softmax')(layer1)
-#    return tf.keras.models.Model(inputs=inputs, outputs=layer2)
-#ff_model_target = create_target_model()
-#ff_model_target.set_weights(ff_model.get_weights())
-
 
 #Training
 model_target = Model()
@@ -132,12 +110,6 @@ loss_function = tf.keras.losses.CategoricalCrossentropy()
 kl_function = tf.keras.losses.KLDivergence(reduction=tf.keras.losses.Reduction.NONE)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
 
-#epsilon_greedy_frames = 1000000
-#epsilon_random_iters = 0
-#epsilon = 1.0
-#epsilon_min = 0.1
-#epsilon_max = 1.0
-#epsilon_interval = epsilon_max - epsilon_min
 
 action_history = []
 state_history = []
@@ -163,15 +135,8 @@ while True:
     
     for timestep in range(1000):
         iters += 1
-#        if iters < epsilon_random_iters and epsilon > np.random.rand(1)[0]:
-#            action = np.random.choice(39)
-#        else:
         prediction = model(np.reshape(env.buffer, (1, env.buffer.shape[0], env.buffer.shape[1])), training=False)
-#            action = np.argmax(prediction)
         action = sample(prediction, 0.2)
-        
-#        epsilon -= epsilon_interval / epsilon_greedy_frames
-#        epsilon = max(epsilon, epsilon_min)
         
         state_next,reward, done, _ = env.step(action)
         
@@ -189,7 +154,6 @@ while True:
             indices = np.random.choice(range(len(done_history)- batch_size))
             state_sample = np.array(state_history[indices:indices+batch_size])
             state_next_sample = np.array(state_next_history[indices:indices+batch_size])
-#            lstm_output_sample = np.array(lstm_output_history[indices:indices+batch_size])
             rewards_sample = rewards_history[indices:indices+batch_size]
             action_sample = action_history[indices:indices+batch_size]
             done_sample = tf.convert_to_tensor(
@@ -259,22 +223,20 @@ while True:
     print('Jensen-Shannon divergence: ', 0.5*(kl + kl_rev))
     aux_loss.append(loss)
     kl_loss.append(0.5*(kl + kl_rev))
-#    if running_reward > 0:
-#        print('Updated at episode {}'.format(episode_count))
-#        break
     # Stop if training episodes count 100 
     if episode_count == 100:
         print('Trained for 100 episodes')
         break
     
-##plot
+# Plot episodes and loss curve
 plt.plot(episode_reward_history)
-plt.ylim(-20000, 0)
+plt.ylim(min(episode_reward_history), max(episode_reward_history))
 plt.xlabel('Episode')
 plt.ylabel('Episode reward')
 plt.title('RL training')
 plt.show()
-#
+
+
 aux, = plt.plot(aux_loss)
 kl, = plt.plot(kl_loss)
 plt.legend([aux, kl], ['Total loss', 'JS Loss'], loc='lower right')
@@ -282,9 +244,6 @@ plt.xlabel('Episode')
 plt.ylabel('Episode loss')
 plt.title('RL training')
 plt.show()
-#
-##Code for checking 
-##''.join([int_to_char[a] for a in action_history])
 
 
 
