@@ -4,6 +4,10 @@ import gym
 from nltk.corpus import words as wrds
 from nltk.corpus import wordnet as wn
 
+# Import environments
+# import envs
+# aEnv = envs.SingleCharEnv()
+
 np.seterr(divide='ignore')
 
 #weights_file = './Weights/weight_lstm2-okko2.hdf5'

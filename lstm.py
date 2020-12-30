@@ -48,6 +48,8 @@ print("Total patterns: ", n_patterns)
 # Number of units in specific layers
 num_lstm_units = 128    
 num_ff_units = 50
+
+
 # Data transformation for Keras
 #X = np.reshape(dataX, [n_patterns, seq_length, 1])
 #X = X / float(n_vocab)
@@ -71,31 +73,16 @@ def Model():
     model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
     return model
 
-#def Model():
-#    model = tf.keras.models.Sequential()
-#    #model.add(tf.keras.layers.GRU(128, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-#    model.add(tf.keras.layers.LSTM(num_lstm_units, input_shape=(X.shape[1], X.shape[2]), return_sequences = True))
-##    model.add(tf.keras.layers.BatchNormalization())
-#    #model.add(tf.keras.layers.GRU(128, return_sequences = False))
-#    model.add(tf.keras.layers.LSTM(num_lstm_units, return_sequences = False))
-##    model.add(tf.keras.layers.BatchNormalization())
-#    model.add(tf.keras.layers.Dense(num_ff_units, activation='relu'))
-##    model.add(tf.keras.layers.Dense(200, activation='relu'))
-#    model.add(tf.keras.layers.Dense(y.shape[1], activation="softmax"))
-#    model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
-#    return model
-
 
 # Create model
 model = Model()
 model.summary()
 
 # Define hyperparameters and callbacks
-#filepath = "./Weights/weight_lstm2-4_nov.hdf5"
+#filepath = "./Weights/weight_train.hdf5"
 #checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 #callbacks_list = [checkpoint]
-#
-## Train model and save loss to history and save weights to file
+# Train model and save loss to history and save weights to file
 #history6 = model.fit(X, y, epochs=100, batch_size=256, callbacks=callbacks_list)
 
 
@@ -146,8 +133,8 @@ text_generation(1000, 0.2)
 # Save model
 #model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
 #del model  # deletes the existing model
-##
-##
+
+
 ### returns a compiled model
 ### identical to the previous one
 #model = tf.keras.models.load_model('my_model.h5')
