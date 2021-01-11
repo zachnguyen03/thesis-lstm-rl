@@ -121,7 +121,7 @@ def sample(preds, temperature=1.0):
     preds = np.log(preds) / temperature
     exp_preds = np.exp(preds)
     preds = exp_preds / np.sum(exp_preds)
-    probas = np.random.multinomial(1, preds.T, 1)
+    probas = np.random.multinomial(1, preds.T[:,0], 1)
     outputted_text = np.argmax(probas)
     return outputted_text
    

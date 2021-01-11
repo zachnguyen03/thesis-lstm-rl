@@ -63,19 +63,19 @@ class Environment(gym.Env):
         
         seq = ''.join([int_to_char[np.argmax(c)] for c in self.buffer])
         words = [word for word in seq.split() if word != '']
-        last_wrd = words[len(words)-1]
-        sec_last_wrd = words[len(words)-2]
+        # last_wrd = words[len(words)-1]
+        # sec_last_wrd = words[len(words)-2]
 #        food_terms = ['food', 'cake', 'salt', 'sugar', 'said']
-#        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]])) #char_to_int is dict mapping character to action number (index)
+        reward = -1*abs((char_to_int[seq[-1]] - char_to_int[seq[-2]])) #char_to_int is dict mapping character to action number (index)
 #        if len(last_wrd) == 3:
 #            reward = 10
 #        else:
 #            reward = -1
-        if len(words) > 6 and last_wrd in wrds.words() and sec_last_wrd != last_wrd and last_wrd != 'the':
-#        if len(words) > 7 and len(last_wrd) == 3:
-            reward = 10
-        else:
-            reward = -1
+#         if len(words) > 6 and last_wrd in wrds.words() and sec_last_wrd != last_wrd and last_wrd != 'the':
+# #        if len(words) > 7 and len(last_wrd) == 3:
+#             reward = 10
+#         else:
+#             reward = -1
 #        if len(words) > 6 and last_wrd in wrds.words() and sec_last_wrd != last_wrd and last_wrd in nouns:
 #            try:
 #                last_wrd_synset = wn.synset(last_wrd+'.n.01')
@@ -237,17 +237,17 @@ plt.plot(episode_reward_history)
 plt.ylim(min(episode_reward_history), max(episode_reward_history))
 plt.xlabel('Episode')
 plt.ylabel('Episode reward')
-plt.title('RL training')
+plt.title('3.3.2.b Negative distance')
 plt.show()
 
 
-aux, = plt.plot(aux_loss)
-kl, = plt.plot(kl_loss)
-plt.legend([aux, kl], ['Total loss', 'JS Loss'], loc='lower right')
-plt.xlabel('Episode')
-plt.ylabel('Episode loss')
-plt.title('RL training')
-plt.show()
+# aux, = plt.plot(aux_loss)
+# kl, = plt.plot(kl_loss)
+# plt.legend([aux, kl], ['Total loss', 'JS Loss'], loc='lower right')
+# plt.xlabel('Episode')
+# plt.ylabel('Episode loss')
+# plt.title('RL training')
+# plt.show()
 
 
 
